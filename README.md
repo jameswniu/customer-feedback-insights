@@ -69,7 +69,7 @@ flowchart TB
     classDef data fill:#b2f2bb,stroke:#1e1e1e,color:#1e1e1e,stroke-width:2px;
 ```
 
-View the full-size diagram as [a plain image](docs/architecture-full.png), or [in Excalidraw](https://excalidraw.com/#json=Fa-D1f5-0Hun4ogpUWsVu,RtV5_MwS_whnB6N4Ys4lCg), a view-only copy anyone can open.
+View the full-size diagram as [a plain image](docs/architecture-full.png), or [in Excalidraw](https://link.excalidraw.com/l/47sur6M8pSM/87MyRB4UsBd), where anyone can open it as a read-only guest.
 
 The CLI talks to a FastAPI service. Feedback lands in SQLite, a pipeline classifies each item, groups items into themes and scores urgency and criticality, and every quote is verified before anything is saved. The insights endpoint reads the result and filters it by team.
 
