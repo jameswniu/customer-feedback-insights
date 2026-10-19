@@ -43,16 +43,16 @@ Two rules shape the results. I favour recall over precision, because a person de
 
 ```mermaid
 flowchart TB
-    CLI["Terminal CLI<br/>ingest, analyze, insights, ledger"]:::ui
+    CLI["Terminal CLI<br/>ingest, analyze,<br/>insights, ledger"]:::ui
 
-    CLI -->|"1 load feedback"| ING["Ingest<br/>POST /feedback"]:::api
-    CLI -->|"2 run analysis"| ANA["Analyze<br/>POST /analyze"]:::api
-    CLI -->|"3 read results"| INS["Insights<br/>GET /insights"]:::api
-    CLI -->|"4 rate the result"| RAT["Ratings<br/>POST /ledger"]:::api
+    CLI -->|load| ING["Ingest<br/>POST /feedback"]:::api
+    CLI -->|analyze| ANA["Analyze<br/>POST /analyze"]:::api
+    CLI -->|read| INS["Insights<br/>GET /insights"]:::api
+    CLI -->|rate| RAT["Ratings<br/>POST /ledger"]:::api
 
     subgraph PIPE["Analysis pipeline"]
-        direction LR
-        CLS["Classify<br/>rules, or a model<br/>when a key is set"]:::model --> SCO["Group and score<br/>urgent, critical,<br/>at risk"]:::api --> VER["Verify quotes<br/>drop any claim<br/>it cannot prove"]:::api
+        direction TB
+        CLS["Classify<br/>rules, or a model<br/>if a key is set"]:::model --> SCO["Group and score<br/>urgent, critical,<br/>at risk"]:::api --> VER["Verify quotes<br/>drop any claim<br/>it cannot prove"]:::api
     end
 
     ANA --> PIPE
