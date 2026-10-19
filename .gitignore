@@ -10,3 +10,4 @@ debug/
 *.log
 .DS_Store
 docs/eval-research.md
+.run.pid

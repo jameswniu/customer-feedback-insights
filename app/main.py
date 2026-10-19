@@ -185,3 +185,31 @@ def post_ledger(entry: LedgerIn):
 @app.get("/ledger", response_model=list[LedgerEntry])
 def get_ledger(limit: int = Query(20, ge=1, le=1000)):
     return ledger.read(limit)
+
+
+# ---- chat ----------------------------------------------------------------------------------
+
+def _sse_ask(question: str):
+    try:
+        from app.analyze.ask import answer_question
+        for ev in answer_question(question):
+            yield _frame(ev)
+    except Exception as exc:
+        log.exception("ask failed")
+        yield _frame(Event.of("error", f"{type(exc).__name__}: {exc}"))
+
+
+@app.post("/ask")
+def ask(question: str = Body("", embed=True)):
+    question = question.strip()
+    if not question:
+        raise HTTPException(400, "question must not be empty")
+    try:
+        from app.analyze.ask import answer_question  # noqa: F401  checked here so a missing module is a 501
+    except Exception as exc:
+        raise HTTPException(501, f"chat engine unavailable: {exc}")
+    log.info("ask q_len=%d", len(question), extra={"step": "ask"})
+    return StreamingResponse(
+        _sse_ask(question), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

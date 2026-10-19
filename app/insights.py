@@ -66,7 +66,8 @@ def _quote(fb: Feedback) -> str:
         hit = next((p for p in parts if _norm(fb.deadline) in _norm(p)), None)
         if hit:
             return _clip(hit, fb.deadline)
-    hit = next((p for p in parts if _SIGNAL.search(p)), parts[0])
+    # With no signal word, take the first real sentence, not a bare survey score like "Score 5."
+    hit = next((p for p in parts if _SIGNAL.search(p)), None) or next((p for p in parts if len(p.split()) >= 4), parts[0])
     sig = _SIGNAL.search(hit)
     return _clip(hit, sig.group(0) if sig else None)
 
@@ -77,7 +78,7 @@ def _verified(quote: str, fb: Feedback) -> bool:
 
 def _say(label: str, fb: Feedback) -> str:
     """A reason with a short verified quote from the item beside it, or the bare label when no quote verifies."""
-    q = _quote(fb)[:120]
+    q = _quote(fb)
     return f'{label}: "{q}"' if _verified(q, fb) else label
 
 

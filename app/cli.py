@@ -273,6 +273,104 @@ def cmd_health(_: argparse.Namespace) -> int:
     return 0
 
 
+# ---- chat ----------------------------------------------------------------------------------
+
+def _chat_ask(prompt: str) -> Optional[str]:
+    """Like _ask, but echoes a line that arrived on a pipe, since a terminal would have shown it."""
+    line = _ask(prompt)
+    if line is not None and not sys.stdin.isatty():
+        print(line)
+    return line
+
+
+def print_chat_event(ev: dict) -> None:
+    """One streamed step. The answer gets its own indented, wrapped block below its label."""
+    step = str(ev.get("step", "?"))
+    color = {"error": "31", "answer": "1;32", "done": "32"}.get(step, "36")
+    head = f"  {dim(_local_time(ev.get('ts', '')))}  {_c(color, step.ljust(11))}"
+    if step != "answer":
+        print(f"{head} {ev.get('message', '')}", flush=True)
+        return
+    print(head.rstrip(), flush=True)
+    for line in str(ev.get("message", "")).splitlines():
+        body = line.strip()
+        if not body:
+            print()
+            continue
+        pad = "    " + line[: len(line) - len(line.lstrip())]
+        num, dot, _ = body.partition(". ")
+        hang = " " * (len(num) + 2) if dot and num.isdigit() else ""
+        print(textwrap.fill(body, width=100, initial_indent=pad, subsequent_indent=pad + hang))
+
+
+def ask_once(cl: httpx.Client, question: str) -> Optional[dict]:
+    """Stream one question, printing each step as it arrives. Returns the answer event, if one came."""
+    answer = None
+    with cl.stream("POST", "/ask", json={"question": question}) as r:
+        if r.status_code >= 400:
+            r.read()
+            raise CliError(f"ask failed ({r.status_code}): {_detail(r)}")
+        for line in r.iter_lines():
+            if not line.startswith("data:"):
+                continue
+            try:
+                ev = json.loads(line[5:].strip())
+            except ValueError:
+                continue
+            print_chat_event(ev)
+            if ev.get("step") == "answer":
+                answer = ev
+    return answer
+
+
+def rate_chat(first: Optional[str]) -> None:
+    """One rating line after an answer. Enter skips, 'yes' or 'no <reason>' is saved to the ledger as target chat."""
+    if first is None or not first.strip():
+        return
+    verdict, reason = parse_verdict(first)
+    if verdict is None:
+        print(dim("Not a yes or no, so no rating was saved."))
+        return
+    if verdict == "no" and not reason:
+        reason = (_chat_ask("A reason is required for 'no' (enter to skip): ") or "").strip()
+        if not reason:
+            print(dim("No reason given, so no rating was saved."))
+            return
+    with client() as cl:
+        r = cl.post("/ledger", json={"target": "chat", "verdict": verdict, "reason": reason})
+    _check(r, "ledger")
+    print(green(f"Logged {verdict}") + (f" - {reason}" if reason else ""))
+
+
+def cmd_chat(_: argparse.Namespace) -> int:
+    with client() as cl:
+        _check(cl.get("/health"), "health")
+    print(bold("Feedback Insights chat.") + " Ask about your customer feedback, or type exit.")
+    print(dim("Try, Which accounts need attention today?  What's urgent this week?  What should we escalate?"))
+    try:
+        while True:
+            line = _chat_ask("\nYou> ")
+            if line is None:
+                print()
+                break
+            question = line.strip()
+            if not question:
+                continue
+            if question.lower() in ("exit", "quit"):
+                break
+            try:
+                with client(read=None) as cl:
+                    answered = ask_once(cl, question)
+            except CliError as exc:
+                print(red(str(exc)), file=sys.stderr)
+                continue
+            if answered is not None:
+                rate_chat(_chat_ask("Good? (yes/no, enter to skip) + reason: "))
+    except KeyboardInterrupt:
+        print()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m app.cli", description="Feedback Insights CLI")
     sub = p.add_subparsers(dest="cmd", required=True, metavar="command")
@@ -287,13 +385,14 @@ def build_parser() -> argparse.ArgumentParser:
     a = sub.add_parser("ledger", help="show recent ratings")
     a.add_argument("--limit", type=int, default=10)
     sub.add_parser("health", help="API status")
+    sub.add_parser("chat", help="ask questions about the feedback in plain sentences, with a rating after each answer")
     return p
 
 
 def main(argv: Optional[list[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     handlers = {"ingest": cmd_ingest, "analyze": cmd_analyze, "insights": cmd_insights,
-                "ledger": cmd_ledger, "health": cmd_health}
+                "ledger": cmd_ledger, "health": cmd_health, "chat": cmd_chat}
     try:
         return handlers[args.cmd](args)
     except CliError as exc:

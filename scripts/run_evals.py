@@ -34,7 +34,7 @@ sys.path.insert(0, str(ROOT / "tests" / "evals"))
 import harness  # noqa: E402
 from harness import Case, Ctx, FakeAnthropic  # noqa: E402
 
-HANDLER_MODULES = ("happy", "edge_a", "edge_b")
+HANDLER_MODULES = ("happy", "edge_a", "edge_b", "chat")
 
 
 def load_handlers() -> dict:
@@ -118,8 +118,8 @@ def main() -> int:
         rs = [r for r in results if kind in (None, r["kind"])]
         return sum(r["pass"] for r in rs), len(rs)
 
-    (p, n), (hp, hn), (ep, en) = tally(), tally("happy"), tally("edge")
-    print(f"\nEVALS {p}/{n} passed  (happy {hp}/{hn}, edge {ep}/{en})  in {time.perf_counter() - t_all:.0f}s")
+    (p, n), (hp, hn), (ep, en), (cp, cn) = tally(), tally("happy"), tally("edge"), tally("chat")
+    print(f"\nEVALS {p}/{n} passed  (happy {hp}/{hn}, edge {ep}/{en}, chat {cp}/{cn})  in {time.perf_counter() - t_all:.0f}s")
     failed = [r["id"] for r in results if not r["pass"]]
     if failed:
         print("FAILED " + ", ".join(failed))

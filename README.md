@@ -2,9 +2,9 @@
 
 Turns customer feedback from many sources into what a team can act on, the urgent issues, the themes worth escalating and the accounts at risk, each backed by the customer's own words.
 
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688) ![Tests](https://img.shields.io/badge/tests-69%20passing-brightgreen) ![Built in](https://img.shields.io/badge/built%20in-45%20minutes-orange)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688) ![Tests](https://img.shields.io/badge/tests-111%20passing-brightgreen) ![Built in](https://img.shields.io/badge/built%20in-45%20minutes-orange)
 
-![A customer success manager ingests feedback, watches the analysis, reads the insights and rates them](docs/demo.gif)
+![A customer success manager loads feedback, watches the analysis, asks a question and rates the answer](docs/demo.gif)
 
 I built this in a 45-minute exercise for internal customer success and product teams. They collect feedback in support tickets, surveys, call notes, Slack and email, and need to know what matters today.
 
@@ -23,13 +23,14 @@ cd customer-feedback-insights
 ```bash
 python -m app.cli ingest data/sample_feedback.json
 python -m app.cli analyze
+python -m app.cli chat
 python -m app.cli insights --team customer_success
 python -m app.cli ledger
 ```
 
 ![The analysis prints each step as it runs](docs/analyze-steps.png)
 
-`analyze` prints every step as it happens. `insights` prints the results, then asks `Good? (yes/no) + reason:` and saves your answer. `ledger` shows the saved answers, and a "no" must come with a reason.
+`analyze` prints every step as it happens. `chat` takes questions in plain sentences, such as `Which accounts need attention today?`, and streams its steps before an answer that quotes the customer. `insights` prints the full results, then asks `Good? (yes/no) + reason:` and saves your answer. `ledger` shows the saved answers, and a "no" must come with a reason.
 
 ## How it decides what matters
 
@@ -37,7 +38,7 @@ An item is urgent when it carries a time deadline, such as a renewal date, a lau
 
 Two rules shape the results. I favour recall over precision, because a person decides whether to escalate, so borderline items appear with a low confidence label instead of being hidden. And the tool never states what it cannot show. Each claim quotes the customer word for word, code checks that the quote really appears in the source text, and any claim that fails the check is dropped and counted.
 
-![Insights with quotes, at-risk accounts and the rating prompt](docs/insights-rating.png)
+![A chat answer with the customer's own quotes, then the rating prompt](docs/chat-answer.png)
 
 ## Under the hood
 
@@ -47,7 +48,7 @@ flowchart TB
 
     CLI -->|load| ING["Ingest<br/>POST /feedback"]:::api
     CLI -->|analyze| ANA["Analyze<br/>POST /analyze"]:::api
-    CLI -->|read| INS["Insights<br/>GET /insights"]:::api
+    CLI -->|read or ask| INS["Insights and chat<br/>GET /insights<br/>POST /ask"]:::api
     CLI -->|rate| RAT["Ratings<br/>POST /ledger"]:::api
 
     subgraph PIPE["Analysis pipeline"]
@@ -88,17 +89,17 @@ grep 3f9a1c logs/app.log        # trace one request by its id
 ## Tests
 
 ```bash
-pytest -q                       # 69 tests, all offline
-python scripts/run_evals.py     # 30 conversation-style cases, about 20 seconds
+pytest -q                       # 111 tests, all offline
+python scripts/run_evals.py     # 38 conversation-style cases, about 25 seconds
 ./scripts/smoke.sh              # the whole flow on a throwaway database
 python scripts/latency.py       # median and p95 time for an analysis
 ```
 
-The tests check recall on the labelled urgent items and that every quote appears in its source. They never assert precision, on purpose. `docs/evals-questions.md` explains the 30 eval cases, 10 everyday conversations and 20 edge cases such as sarcasm, French and Spanish tickets, messy CSV files and a ticket that tries to give the tool orders. All 30 pass today.
+The tests check recall on the labelled urgent items and that every quote appears in its source. They never assert precision, on purpose. `docs/evals-questions.md` explains the eval cases, 10 everyday conversations and 20 edge cases such as sarcasm, French and Spanish tickets, messy CSV files and a ticket that tries to give the tool orders. Eight more ask the everyday questions as chat sentences. All 38 pass today.
 
 ## How I built it
 
-I split the 45 minutes across four AI coding sessions working from one task board (`TASKS.md`), an architect, two engineers and a QA that tried to break the claims. `CLAUDE.md` is the contract that kept them consistent, and it is enough for an agent with no memory to rebuild the repo.
+I split the 45 minutes across four AI coding sessions working from one task board (`TASKS.md`), an architect, two engineers and a QA that tried to break the claims. `CLAUDE.md` is the contract that kept them consistent, and it is enough for an agent with no memory to rebuild the repo. The chat command came in a second pass after the exercise.
 
 SQLite and one process keep this easy to run. To productionize it I would put the API behind single sign-on with team-scoped queries and move analysis onto a queue with workers. I would also store themes in Postgres with embeddings for clustering and redact personal data before any model call. With more time I would use the saved ratings to tune thresholds and prompts.
 
@@ -107,6 +108,7 @@ Known limits, left alone to stay inside the 45 minutes:
 - The quote check ignores case and spacing, so it proves a quote is present rather than character-exact.
 - French and Spanish are handled with keyword cues, not a language model, so other languages need the API key.
 - A date with no year that is more than 30 days before the ticket is read as next year, which can show a lapsed deadline as live.
-- Results are saved in two writes instead of one transaction, and insights read at most 10,000 rows.
+- Results are saved in two writes instead of one transaction, and insights and chat read at most 10,000 rows.
+- A failure during a chat answer prints as a red error line, but the command still exits with success.
 - Two analyses started at once can overwrite each other.
 - The saved ratings trust the run id the CLI sends, and record the engine of the latest run, so rating an older result after a setting change can mislabel it.

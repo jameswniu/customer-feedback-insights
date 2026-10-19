@@ -18,7 +18,7 @@ Enter
 Sleep 5s
 Show
 
-Type "# Customer success manager, 12:25 pm. Which accounts need me today?"
+Type "# Customer success manager. Load the feedback, then just ask."
 Enter
 Sleep 1s
 Type "python -m app.cli ingest data/sample_feedback.json"
@@ -29,12 +29,12 @@ Enter
 Sleep 4s
 Type "clear"
 Enter
-Type "python -m app.cli insights --team customer_success"
-Enter
-Sleep 10s
-Type "yes, it caught the Acme Friday renewal ultimatum and the Umbrella go-live"
+Type "python -m app.cli chat"
 Enter
 Sleep 2s
-Type "python -m app.cli ledger"
+Type "Which accounts need attention today?"
 Enter
-Sleep 4s
+Sleep 9s
+Type "yes, it caught the Acme Friday renewal ultimatum and the Umbrella go-live"
+Enter
+Sleep 3s
