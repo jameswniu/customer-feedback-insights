@@ -44,7 +44,7 @@ Two rules shape the results. I favour recall over precision, because a person de
 
 ```mermaid
 flowchart TB
-    CLI["Terminal CLI<br/>ingest, analyze,<br/>insights, ledger"]:::ui
+    CLI["Terminal CLI<br/>ingest, analyze, chat,<br/>insights, ledger"]:::ui
 
     CLI -->|load| ING["Ingest<br/>POST /feedback"]:::api
     CLI -->|analyze| ANA["Analyze<br/>POST /analyze"]:::api
