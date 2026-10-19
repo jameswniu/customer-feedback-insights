@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+data/feedback.db
+data/ledger.jsonl
+logs/
+debug/
+*.log
+.DS_Store
+docs/eval-research.md

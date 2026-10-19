@@ -1,0 +1,157 @@
+{
+  "as_of": "2026-10-19",
+  "note": "Ground truth for data/sample_feedback.json. URGENT = time deadline, outage or blocked/escalate/cancel language (CLAUDE.md rule 3). Tests assert recall on expected_urgent only, never precision.",
+  "expected_urgent": [
+    "fb-001",
+    "fb-002",
+    "fb-005",
+    "fb-006",
+    "fb-008",
+    "fb-009",
+    "fb-014",
+    "fb-018",
+    "fb-020",
+    "fb-036"
+  ],
+  "urgent_reasons": {
+    "fb-001": "renewal November 2, fix by Friday, will not renew",
+    "fb-002": "finance blocked on month-end close",
+    "fb-005": "400 clinicians blocked, go live October 26",
+    "fb-006": "must fix before SOC 2 audit October 30, escalate",
+    "fb-008": "root cause by October 23 or they evaluate a competitor",
+    "fb-009": "fix before sales kickoff October 28",
+    "fb-014": "duplicate charge, books close October 21",
+    "fb-018": "competitor comparison, renewal November 15",
+    "fb-020": "CIO will escalate tomorrow, staff cannot be onboarded",
+    "fb-036": "contact sync still down, reps entering leads by hand"
+  },
+  "expected_critical_groups": {
+    "csv_export_timeouts": {
+      "ids": [
+        "fb-001",
+        "fb-002",
+        "fb-003",
+        "fb-004",
+        "fb-034"
+      ],
+      "accounts": [
+        "Acme Corp",
+        "Globex",
+        "Initech",
+        "Hooli"
+      ]
+    },
+    "sso_login_failures": {
+      "ids": [
+        "fb-005",
+        "fb-006",
+        "fb-007",
+        "fb-020",
+        "fb-033"
+      ],
+      "accounts": [
+        "Umbrella Health",
+        "Stark Industries",
+        "Wayne Enterprises"
+      ]
+    },
+    "salesforce_sync": {
+      "ids": [
+        "fb-008",
+        "fb-009",
+        "fb-035",
+        "fb-036"
+      ],
+      "accounts": [
+        "Wonka Foods",
+        "Globex"
+      ]
+    },
+    "dashboard_slowness": {
+      "ids": [
+        "fb-011",
+        "fb-012",
+        "fb-013"
+      ],
+      "accounts": [
+        "Hooli",
+        "Soylent Systems",
+        "Acme Corp"
+      ]
+    }
+  },
+  "expected_critical": [
+    "fb-001",
+    "fb-002",
+    "fb-003",
+    "fb-004",
+    "fb-034",
+    "fb-005",
+    "fb-006",
+    "fb-007",
+    "fb-020",
+    "fb-033",
+    "fb-008",
+    "fb-009",
+    "fb-035",
+    "fb-036",
+    "fb-011",
+    "fb-012",
+    "fb-013"
+  ],
+  "expected_at_risk_accounts": [
+    "Acme Corp",
+    "Stark Industries",
+    "Wonka Foods",
+    "Umbrella Health"
+  ],
+  "positive_only_ids": [
+    "fb-022",
+    "fb-025",
+    "fb-037",
+    "fb-038"
+  ],
+  "no_deadline_ids": [
+    "fb-003",
+    "fb-004",
+    "fb-007",
+    "fb-012",
+    "fb-013",
+    "fb-015",
+    "fb-019",
+    "fb-021",
+    "fb-023",
+    "fb-027",
+    "fb-028",
+    "fb-029",
+    "fb-030",
+    "fb-031",
+    "fb-032",
+    "fb-033",
+    "fb-035",
+    "fb-037",
+    "fb-038",
+    "fb-039",
+    "fb-040"
+  ],
+  "sources": [
+    "support_ticket",
+    "email",
+    "slack",
+    "nps_survey",
+    "call_notes"
+  ],
+  "accounts": [
+    "Acme Corp",
+    "Globex",
+    "Initech",
+    "Umbrella Health",
+    "Hooli",
+    "Stark Industries",
+    "Wayne Enterprises",
+    "Wonka Foods",
+    "Soylent Systems",
+    "Pied Piper"
+  ],
+  "no_deadline_note": "Rows with no temporal word at all. Any deadline on these would be invented."
+}
