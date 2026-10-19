@@ -1,0 +1,16 @@
+[
+  {
+    "id": "pii-001",
+    "source": "email",
+    "account": "Pinnacle Bank",
+    "timestamp": "2026-10-19T08:00:00Z",
+    "text": "Please call me back at 415-555-0199 or email jane.doe@pinnacle-example.com. Our SSO login is blocked and the audit is on October 28."
+  },
+  {
+    "id": "pii-002",
+    "source": "support_ticket",
+    "account": "Pinnacle Bank",
+    "timestamp": "2026-10-19T08:30:00Z",
+    "text": "We were charged twice on card 4111 1111 1111 1111 and need a refund before October 25."
+  }
+]

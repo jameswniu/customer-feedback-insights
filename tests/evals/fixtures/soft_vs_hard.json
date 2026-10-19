@@ -1,0 +1,23 @@
+[
+  {
+    "id": "soft-hard",
+    "source": "email",
+    "account": "Wernham Hogg",
+    "timestamp": "2026-10-19T09:00:00Z",
+    "text": "We need the SAML login fix ASAP, our whole team cannot log in."
+  },
+  {
+    "id": "soft-soft",
+    "source": "email",
+    "account": "Wernham Hogg",
+    "timestamp": "2026-10-19T09:05:00Z",
+    "text": "Whenever you get a chance, it would be nice to have a dark theme for the dashboard."
+  },
+  {
+    "id": "soft-rush",
+    "source": "slack",
+    "account": "Wernham Hogg",
+    "timestamp": "2026-10-19T09:10:00Z",
+    "text": "No rush at all, but when you have time could you look at the CSV export layout?"
+  }
+]

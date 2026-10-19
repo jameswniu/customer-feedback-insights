@@ -19,7 +19,7 @@ log = logging.getLogger("app.main")
 
 
 def _setup_logging() -> None:
-    """Use eng2's logging_setup when it exists, else plain stderr logging."""
+    """Use the logging_setup module when it exists, else plain stderr logging."""
     try:
         from app import logging_setup
         for name in ("setup_logging", "configure_logging", "init_logging", "setup"):

@@ -1,0 +1,37 @@
+[
+  {
+    "source": "email",
+    "account": "Tiny Co",
+    "text": ""
+  },
+  {
+    "source": "email",
+    "account": "Tiny Co",
+    "text": "   "
+  },
+  {
+    "source": "email",
+    "account": "Tiny Co"
+  },
+  {
+    "id": "short-ok",
+    "source": "slack",
+    "account": "Tiny Co",
+    "timestamp": "2026-10-19T09:00:00Z",
+    "text": "ok"
+  },
+  {
+    "id": "short-help",
+    "source": "slack",
+    "account": "Tiny Co",
+    "timestamp": "2026-10-19T09:01:00Z",
+    "text": "help"
+  },
+  {
+    "id": "short-real",
+    "source": "support_ticket",
+    "account": "Tiny Co",
+    "timestamp": "2026-10-19T09:02:00Z",
+    "text": "The nightly sync fails with a 429 error and we need it fixed by Friday."
+  }
+]

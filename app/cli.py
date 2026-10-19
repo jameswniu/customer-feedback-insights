@@ -69,15 +69,19 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         raw = ingest_mod.read_rows(args.path)
     except (OSError, ValueError) as exc:
         raise CliError(f"cannot read {args.path}: {exc}")
-    rows = ingest_mod.parse_rows(raw)
+    skipped: list[tuple[str, int, str]] = []
+    rows = ingest_mod.parse_rows(raw, skipped)
     if not rows:
         raise CliError(f"no usable rows in {args.path} (each row needs text)")
     with client() as cl:
         r = cl.post("/feedback", json=[x.model_dump(exclude_none=True) for x in rows])
     _check(r, "ingest")
-    skipped = len(raw) - len(rows)
-    note = f" ({skipped} skipped, no text)" if skipped else ""
+    note = f" ({len(skipped)} skipped)" if skipped else ""
     print(f"Ingested {r.json()['ingested']} rows from {args.path}{note}")
+    for kind, num, why in skipped[:20]:
+        print(f"  {kind} {num} skipped ({why})")
+    if len(skipped) > 20:
+        print(f"  and {len(skipped) - 20} more")
     return 0
 
 
@@ -133,6 +137,8 @@ def render_insights(ins: dict) -> str:
         head = f"  {i}. {u.get('account', '?')} ({u.get('source', '?')})  confidence {u.get('confidence', '?')}"
         if u.get("deadline"):
             head += f"  deadline {u['deadline']}"
+            if u.get("lapsed"):
+                head += " " + red("(lapsed)")
         L.append(head)
         L.append(wrap(f"\"{u.get('quote', '')}\"  [{u.get('feedback_id', '')}]"))
 

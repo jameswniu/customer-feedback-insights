@@ -112,6 +112,7 @@ class UrgentIssue(_Base):
     deadline: Optional[str] = None
     theme_id: Optional[str] = None
     confidence: Confidence = "medium"
+    lapsed: bool = False
 
     _lc = field_validator("confidence", mode="before")(lambda cls, v: _lower(v))
 

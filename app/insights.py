@@ -11,6 +11,7 @@ import logging
 import re
 import threading
 import time
+from datetime import date
 from typing import Optional
 
 from app import db
@@ -18,7 +19,7 @@ from app.config import get_settings
 from app.models import (TEAMS, AtRiskAccount, Evidence, Feedback, InsightTheme, Insights,
                         UrgentIssue, now_iso)
 
-try:  # eng2 owns the constants, defaults here match CLAUDE.md
+try:  # the scoring constants live in app/analyze/scoring.py, the defaults here match the contract in CLAUDE.md
     from app.analyze.scoring import AT_RISK_T, CRITICAL_T, URGENT_T
 except Exception:
     URGENT_T, CRITICAL_T, AT_RISK_T = 0.4, 0.35, 0.35
@@ -41,21 +42,64 @@ def _norm(s: str) -> str:
     return " ".join(s.lower().split())
 
 
+_MAX_QUOTE = 240
+_CANCEL = re.compile(r"cancel|terminat|churn|not renew|won't renew|switch(?:ing)? to|annul|r[ée]sili|cancelar", re.I)
+
+
+def _clip(sentence: str, anchor: Optional[str]) -> str:
+    """Cut a long sentence to _MAX_QUOTE characters, keeping the anchor (the deadline or the signal word) inside the cut."""
+    if len(sentence) <= _MAX_QUOTE:
+        return sentence
+    m = re.search(r"\s+".join(map(re.escape, anchor.split())), sentence, re.I) if anchor and anchor.strip() else None
+    if not m:
+        return sentence[:_MAX_QUOTE]
+    start = max(0, min(m.start() - 80, len(sentence) - _MAX_QUOTE))
+    return sentence[start:start + _MAX_QUOTE].strip()
+
+
 def _quote(fb: Feedback) -> str:
-    """Pick the sentence that carries the signal, preferring the stated deadline."""
+    """Pick the sentence that carries the signal, preferring the stated deadline, and keep the deadline inside the quote."""
     parts = [p.strip() for p in _SENTENCES.split(fb.text) if p.strip()]
     if not parts:
         return ""
     if fb.deadline:
         hit = next((p for p in parts if _norm(fb.deadline) in _norm(p)), None)
         if hit:
-            return hit[:240]
+            return _clip(hit, fb.deadline)
     hit = next((p for p in parts if _SIGNAL.search(p)), parts[0])
-    return hit[:240]
+    sig = _SIGNAL.search(hit)
+    return _clip(hit, sig.group(0) if sig else None)
 
 
 def _verified(quote: str, fb: Feedback) -> bool:
     return bool(quote) and _norm(quote) in _norm(fb.text)
+
+
+def _say(label: str, fb: Feedback) -> str:
+    """A reason with a short verified quote from the item beside it, or the bare label when no quote verifies."""
+    q = _quote(fb)[:120]
+    return f'{label}: "{q}"' if _verified(q, fb) else label
+
+
+def _lapsed(fb: Feedback) -> bool:
+    """True when the deadline, resolved against the ticket date, is already before today."""
+    if not fb.deadline:
+        return False
+    try:
+        from app.analyze import nlp
+        d = nlp.deadline_date(fb.deadline, fb.timestamp)
+    except Exception:
+        return False
+    return d is not None and d < date.today()
+
+
+def _model_dropped() -> int:
+    """Model claims (a quote or a deadline) that failed the verbatim check in the last analysis, see nlp._coerce."""
+    try:
+        from app.analyze import nlp
+        return int(nlp.STATS.get("dropped_unverified") or 0)
+    except Exception:
+        return 0
 
 
 def _evidence(fbs: list[Feedback], limit: int, dropped: list[int]) -> list[Evidence]:
@@ -144,7 +188,8 @@ def build_insights(team: Optional[str] = None) -> Insights:
             continue
         conf = "high" if fb.deadline else "medium" if fb.urgency >= 0.7 else "low"
         issues.append(UrgentIssue(feedback_id=fb.id, account=fb.account, source=fb.source, quote=q,
-                                  deadline=fb.deadline, theme_id=fb.theme_id or theme_of.get(fb.id), confidence=conf))
+                                  deadline=fb.deadline, theme_id=fb.theme_id or theme_of.get(fb.id), confidence=conf,
+                                  lapsed=_lapsed(fb)))
 
     at_risk: list[AtRiskAccount] = []
     for account in sorted({f.account for f in scoped}):
@@ -157,10 +202,19 @@ def build_insights(team: Optional[str] = None) -> Insights:
             continue
         reasons = [f"{negative} of {len(items)} items are negative"]
         dated = [f for f in items if f.deadline]
-        if dated:
-            reasons.append(f"deadline mentioned: {dated[0].deadline}")
-        elif max_urg >= URGENT_T:
+        live, gone = [f for f in dated if not _lapsed(f)], [f for f in dated if _lapsed(f)]
+        if live:
+            reasons.append(f"deadline mentioned: {live[0].deadline}")
+        if gone:
+            reasons.append(f"deadline already passed: {gone[0].deadline}")
+        if not dated and max_urg >= URGENT_T:
             reasons.append("blocking or cancellation language")
+        churn = next((f for f in items if "churn_risk" in _tags(f) or _CANCEL.search(f.text)), None)
+        if churn:
+            reasons.append(_say("cancel or churn threat", churn))
+        positive = next((f for f in items if f.sentiment == "positive"), None)
+        if positive and negative:
+            reasons.append(_say("positive signal beside the risk", positive))
         if n_themes > 1:
             reasons.append(f"spans {n_themes} themes")
         at_risk.append(AtRiskAccount(
@@ -171,7 +225,7 @@ def build_insights(team: Optional[str] = None) -> Insights:
     result = Insights(
         run_id=hashlib.sha1(repr(sig).encode()).hexdigest()[:8], generated_at=now_iso(), team=team,
         mode=_engine(), themes=themes, urgent_issues=issues, at_risk_accounts=at_risk,
-        dropped_unverified=dropped[0])
+        dropped_unverified=dropped[0] + _model_dropped())
     with _LOCK:
         _CACHE.clear()
         _CACHE[key] = (time.time(), result)

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "pos-001",
+    "source": "nps_survey",
+    "account": "Sunshine Ltd",
+    "timestamp": "2026-10-14T09:00:00Z",
+    "text": "Score 10. Love the product, the team is fantastic and support is wonderful."
+  },
+  {
+    "id": "pos-002",
+    "source": "slack",
+    "account": "Sunshine Ltd",
+    "timestamp": "2026-10-16T09:00:00Z",
+    "text": "Thank you for the quick help. The new saved views feature is great and saves us hours."
+  }
+]

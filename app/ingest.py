@@ -51,6 +51,30 @@ def norm_timestamp(v: Any) -> Optional[str]:
     return dt.isoformat(timespec="seconds")
 
 
+LINE_KEY = "__line__"
+
+
+def _csv_rows(text: str, delim: str, offset: int = 0) -> list[dict]:
+    """CSV records as dicts, each tagged with the physical line it starts on (the header is line 1).
+
+    `offset` counts blank lines that were stripped off the top of the file before parsing.
+    """
+    reader = csv.reader(io.StringIO(text), delimiter=delim)
+    header = next(reader, None)
+    if header is None:
+        return []
+    out: list[dict] = []
+    prev = reader.line_num
+    for rec in reader:
+        start, prev = prev + 1, reader.line_num
+        if not rec:
+            continue
+        row = dict(zip(header, rec))
+        row[LINE_KEY] = start + offset
+        out.append(row)
+    return out
+
+
 def parse_content(content: str, suffix: str = "") -> list[dict]:
     """Raw rows from JSON (list or {feedback: [...]}), JSONL or CSV/TSV text."""
     s = content.strip()
@@ -61,7 +85,7 @@ def parse_content(content: str, suffix: str = "") -> list[dict]:
                 delim = csv.Sniffer().sniff(s[:2048], delimiters=",;\t|").delimiter
             except csv.Error:
                 pass
-        return list(csv.DictReader(io.StringIO(s), delimiter=delim))
+        return _csv_rows(s, delim, content[: len(content) - len(content.lstrip())].count("\n"))
     try:
         data = json.loads(s)
     except ValueError:
@@ -80,13 +104,20 @@ def read_rows(path: Union[str, Path]) -> list[dict]:
     return parse_content(p.read_text(encoding="utf-8-sig"), p.suffix.lower())
 
 
-def parse_rows(rows: list[dict]) -> list[FeedbackIn]:
-    """Map header aliases onto FeedbackIn. Rows without text are skipped."""
+def parse_rows(rows: list[dict], skipped: Optional[list[tuple[str, int, str]]] = None) -> list[FeedbackIn]:
+    """Map header aliases onto FeedbackIn. Rows without text are skipped.
+
+    Pass a list as `skipped` to learn which. It gets (kind, number, reason) per skipped row, with kind
+    "line" for CSV (the physical line, header is 1) and "row" for JSON (position in the list, from 1).
+    """
     out: list[FeedbackIn] = []
-    for raw in rows:
+    for i, raw in enumerate(rows, 1):
+        where = ("line", raw[LINE_KEY]) if isinstance(raw, dict) and LINE_KEY in raw else ("row", i)
         if not isinstance(raw, dict):
+            if skipped is not None:
+                skipped.append((*where, "not an object"))
             continue
-        row = {_key(k): v for k, v in raw.items()}
+        row = {_key(k): v for k, v in raw.items() if k != LINE_KEY}
 
         def pick(field: str) -> Any:
             for alias in ALIASES[field]:
@@ -97,6 +128,8 @@ def parse_rows(rows: list[dict]) -> list[FeedbackIn]:
 
         text = pick("text")
         if text is None:
+            if skipped is not None:
+                skipped.append((*where, "no text"))
             continue
         out.append(FeedbackIn(
             id=pick("id"),

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "new-001",
+    "source": "support_ticket",
+    "account": "Cyberdyne Systems",
+    "timestamp": "2026-10-19T08:30:00Z",
+    "text": "SAML login fails with an invalid assertion error for our whole finance team. We need this fixed before our board demo on October 27."
+  },
+  {
+    "id": "new-002",
+    "source": "slack",
+    "account": "Tyrell Corp",
+    "timestamp": "2026-10-19T09:10:00Z",
+    "text": "Okta SSO keeps looping back to the sign-in page for our admins since this morning."
+  },
+  {
+    "id": "new-003",
+    "source": "email",
+    "account": "Cyberdyne Systems",
+    "timestamp": "2026-10-19T10:05:00Z",
+    "text": "Following up on the SAML login issue. Our users are blocked from signing in and our CIO is asking for an update."
+  }
+]

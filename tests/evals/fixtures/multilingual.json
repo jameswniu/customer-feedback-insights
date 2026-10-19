@@ -1,0 +1,16 @@
+[
+  {
+    "id": "i18n-es",
+    "source": "email",
+    "account": "Cafe del Sol",
+    "timestamp": "2026-10-19T08:00:00Z",
+    "text": "Nuestro inicio de sesión SSO está bloqueado y necesitamos una solución antes del 28 de octubre, de lo contrario cancelaremos la renovación."
+  },
+  {
+    "id": "i18n-fr",
+    "source": "support_ticket",
+    "account": "Maison Lumiere",
+    "timestamp": "2026-10-19T08:30:00Z",
+    "text": "Nous ne pouvons plus nous connecter via SSO. Nous avons besoin d'un correctif avant le 30 octobre, sinon nous résilierons le contrat."
+  }
+]

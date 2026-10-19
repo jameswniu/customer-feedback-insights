@@ -1,0 +1,16 @@
+[
+  {
+    "id": "nps-001",
+    "source": "nps_survey",
+    "account": "Vandelay Industries",
+    "timestamp": "2026-10-14T09:00:00Z",
+    "text": "Score 10. Love the product and the team is fantastic."
+  },
+  {
+    "id": "nps-002",
+    "source": "email",
+    "account": "Vandelay Industries",
+    "timestamp": "2026-10-17T09:00:00Z",
+    "text": "Honestly we will cancel our contract at the end of the quarter unless the SSO login failures are fixed."
+  }
+]

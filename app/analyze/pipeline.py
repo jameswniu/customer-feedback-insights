@@ -105,8 +105,9 @@ def run_analysis(mode: str = "new") -> Iterator[Event]:
                 if c.id in bad:
                     c.evidence_quote, c.deadline, c.urgency = "", None, 0.0
             themes = _themes([c for c in pool if c.id not in bad], by_id)
-        yield ev("verify", f"Verified {len(pool) - len(bad)}/{len(pool)} evidence quotes as verbatim; dropped {len(bad)} unverifiable",
-                 verified=len(pool) - len(bad), dropped_unverified=len(bad))
+        dropped = len(bad) + nlp.STATS["dropped_unverified"]  # plus model quotes and deadlines that failed the check inside nlp
+        yield ev("verify", f"Verified {len(pool) - len(bad)}/{len(pool)} evidence quotes as verbatim; dropped {dropped} unverifiable",
+                 verified=len(pool) - len(bad), dropped_unverified=dropped)
 
         # Themes first. If the second write fails the rows stay unanalyzed and the next run redoes them,
         # instead of being marked current under stale themes.
@@ -119,7 +120,7 @@ def run_analysis(mode: str = "new") -> Iterator[Event]:
         lead = f"; top theme: {themes[0].name} ({themes[0].confidence} confidence)" if themes else ""
         yield ev("answer", f"{len(urgent)} urgent items across {len({by_id[c.id].account for c in urgent})} accounts{lead}",
                  urgent=len(urgent), top=top, themes=[t.name for t in themes[:5]])
-        yield done(len(classified), len(themes), len(bad))
+        yield done(len(classified), len(themes), dropped)
     except Exception as exc:  # surfaced as an error event; main.py turns it into a 500 on the JSON path
         log.exception("analysis failed")
         yield ev("error", f"Analysis failed: {exc}")

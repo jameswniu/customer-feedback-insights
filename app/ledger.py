@@ -36,14 +36,14 @@ def _current_insights(target: str) -> Optional[dict]:
 
 def append(entry: LedgerIn) -> LedgerEntry:
     run_id, sha = entry.run_id, entry.insights_sha256
-    if not (run_id and sha):
-        cur = _current_insights(entry.target)
-        if cur:
-            run_id = run_id or cur.get("run_id") or None
-            sha = sha or insights_hash(cur)
+    cur = _current_insights(entry.target)
+    if cur and not (run_id and sha):
+        run_id = run_id or cur.get("run_id") or None
+        sha = sha or insights_hash(cur)
+    mode = (cur or {}).get("mode") or get_settings().mode  # the engine behind what was rated
     row = LedgerEntry(
         ts=now_iso(), run_id=run_id, target=entry.target, verdict=entry.verdict,
-        reason=entry.reason, mode=get_settings().mode, insights_sha256=sha,
+        reason=entry.reason, mode=mode, insights_sha256=sha,
     )
     path = get_settings().ledger_path
     path.parent.mkdir(parents=True, exist_ok=True)

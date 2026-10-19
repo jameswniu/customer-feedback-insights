@@ -1,0 +1,16 @@
+[
+  {
+    "id": "sar-001",
+    "source": "slack",
+    "account": "Hudsucker Industries",
+    "timestamp": "2026-10-16T10:00:00Z",
+    "text": "Great, another outage. Third time this month the dashboard just goes down."
+  },
+  {
+    "id": "sar-002",
+    "source": "email",
+    "account": "Hudsucker Industries",
+    "timestamp": "2026-10-17T10:00:00Z",
+    "text": "Oh great, it is slow again. Love waiting ten minutes for a page to load."
+  }
+]

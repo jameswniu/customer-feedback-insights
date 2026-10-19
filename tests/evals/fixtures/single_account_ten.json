@@ -1,0 +1,72 @@
+[
+  {
+    "id": "solo-001",
+    "source": "slack",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-10T10:00:00Z",
+    "text": "SSO login fails for me again this morning."
+  },
+  {
+    "id": "solo-002",
+    "source": "support_ticket",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-11T10:00:00Z",
+    "text": "Login with Okta throws an invalid assertion error."
+  },
+  {
+    "id": "solo-003",
+    "source": "email",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-12T10:00:00Z",
+    "text": "Our admins cannot sign in through SSO since the update."
+  },
+  {
+    "id": "solo-004",
+    "source": "slack",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-13T10:00:00Z",
+    "text": "Another login failure, the SSO redirect loops back to the sign-in page."
+  },
+  {
+    "id": "solo-005",
+    "source": "nps_survey",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-14T10:00:00Z",
+    "text": "Score 3. Login is unreliable and SSO keeps failing."
+  },
+  {
+    "id": "solo-006",
+    "source": "support_ticket",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-15T10:00:00Z",
+    "text": "SAML login is failing for the sales team."
+  },
+  {
+    "id": "solo-007",
+    "source": "email",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-16T10:00:00Z",
+    "text": "Please look at the SSO login errors, they happen every day."
+  },
+  {
+    "id": "solo-008",
+    "source": "call_notes",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-17T10:00:00Z",
+    "text": "Their lead said the SSO login problem is hurting adoption."
+  },
+  {
+    "id": "solo-009",
+    "source": "slack",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-18T10:00:00Z",
+    "text": "Login failed again after the password reset."
+  },
+  {
+    "id": "solo-010",
+    "source": "support_ticket",
+    "account": "Solo Corp",
+    "timestamp": "2026-10-19T10:00:00Z",
+    "text": "SSO login error again, third time this week."
+  }
+]

@@ -66,7 +66,7 @@ API (`app/main.py`):
 - `GET /ledger?limit=` -> list[LedgerEntry]
 
 Event: {"step": start|load|classify|cluster|score|verify|persist|answer|done|error, "message", "ts", "data": {}}.
-Insights: {"run_id","generated_at","team","mode","themes":[Theme + priority + evidence[]],"urgent_issues":[{feedback_id, account, source, quote, deadline, theme_id, confidence}],"at_risk_accounts":[{account, risk, confidence, reasons[], evidence[]}],"dropped_unverified"}.
+Insights: {"run_id","generated_at","team","mode","themes":[Theme + priority + evidence[]],"urgent_issues":[{feedback_id, account, source, quote, deadline, lapsed, theme_id, confidence}],"at_risk_accounts":[{account, risk, confidence, reasons[], evidence[]}],"dropped_unverified"}.
 Teams: product = {bug, performance, usability, feature_request, integration, security}; customer_success = {billing, onboarding, support_quality, churn_risk, renewal, security}; `other` belongs to both. `teams=` keeps items whose tags intersect the team's set.
 
 Analysis: `app.analyze.pipeline.run_analysis(mode) -> Iterator[Event]` is a plain sync generator (main.py wraps it in a threadpool). `app.insights.build_insights(team) -> Insights`. `nlp.classify_batch(items) -> list[Classification]`. LLM path: batches of 20, JSON-only output, one retry, then the offline classifier for that batch. Offline path: broad keyword rules.

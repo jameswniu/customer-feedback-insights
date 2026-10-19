@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import time
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 
 from app.analyze import scoring
@@ -52,10 +53,45 @@ TAG_LABEL = {"bug": "Bugs & errors", "performance": "Performance & speed", "usab
              "integration": "API & integrations", "security": "Permissions & security", "billing": "Billing & invoices", "onboarding": "Onboarding & setup",
              "support_quality": "Support responsiveness", "churn_risk": "Renewal & contract risk", "renewal": "Renewal & contract risk", "other": "Other feedback"}
 
+
+# Spanish and French cues. The English rules above stay as they are, these only add to them.
+def _more(rx, extra):
+    return re.compile(rx.pattern + "|" + extra, I)
+
+
+NEG = _more(NEG, r"\b(?:probl[èe]mes?|erreurs?|pannes?|lent\w*|lenteur|inutilisable|ne (?:fonctionne|marche)\w*|ne pouvons|ne pouvez|r[ée]sili\w*|annul\w*|d[ée][çc]u\w*|m[ée]content\w*|problemas?|fall[ao]s?|lentitud|decepcion\w*|no podemos|no puedo|no funciona\w*|no carga\w*|bloquead\w*|cancelar\w*|cancelaremos|cancelaci[óo]n)\b")
+POS = _more(POS, r"\b(?:merci|g[ée]nial\w*|parfait\w*|gracias|excelente\w*|perfect[oa]s?|genial\w*)\b")
+BLOCK = _more(BLOCK, r"\b(?:bloqu[ée]\w*|ne pouvons plus|impossible de|r[ée]sili\w*|annul\w*|no podemos|bloquead\w*|ca[íi]da|cancelar\w*|cancelaremos|cancelaci[óo]n)\b")
+FRUS = _more(FRUS, r"\b(?:frustr[ée]\w*|d[ée][çc]u\w*|inacceptable|m[ée]content\w*|frustrad\w*|decepcion\w*|inaceptable)\b")
+_OUT = (r"\b(?:est[aá]n? ca[ií]d[oa]s?|se ha ca[ií]do|no pueden (?:entrar|acceder|iniciar|usar|trabajar)|no puede (?:entrar|acceder|usar|trabajar)|"
+        r"sin acceso|fuera de servicio|no responde|ne peuvent plus|(?:est|sont) en panne|hors service|inaccessible|ne r[ée]pond (?:plus|pas)|plus acc[èe]s)\b")
+NEG = _more(NEG, _OUT)
+BLOCK = _more(BLOCK, _OUT)
+for _t, _x in {
+    "bug": r"\b(?:erreurs?|pannes?|bogues?|ne fonctionne\w*|falla\w*|fallo\w*|no funciona\w*)\b",
+    "performance": r"\b(?:lent\w*|lenteur|lentitud)\b",
+    "churn_risk": r"\b(?:r[ée]sili\w*|annul\w*|cancelar\w*|cancelaremos|cancelaci[óo]n)\b",
+    "renewal": r"\b(?:renouvel\w*|renov\w*)\b",
+    "billing": r"\b(?:factur\w*|rembours\w*|reembols\w*|paiement|pago)\b",
+}.items():
+    TAGS[_t] = _more(TAGS[_t], _x)
+_TOPIC_X = {
+    "Login & authentication": r"\b(?:connexion|connecter|inici\w+ sesi[óo]n|acceso)\b",
+    "Renewal & contract risk": r"\b(?:renouvel\w*|r[ée]sili\w*|annul\w*|renov\w*|cancelar\w*|cancelaremos|contrato)\b",
+}
+TOPICS = [(n, _more(rx, _TOPIC_X[n]) if n in _TOPIC_X else rx) for n, rx in TOPICS]
+# Sarcasm, a negative word and a recurrence or irony marker in one sentence outweigh positive words ("Oh great, it is slow again").
+SARCASM = re.compile(r"\b(?:again|another|still|once more|as usual|of course|so much for|thanks for nothing|just what i needed|oh,? (?:great|wonderful|fantastic|nice|perfect)|love (?:waiting|how|that|when|having to|spending))\b", I)
+
 MON = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
 MONF = "january|february|march|april|june|july|august|september|october|november|december"
 DOW = "monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tues?|wed|thu(?:rs?)?|fri"
-CUE = re.compile(r"\b(?:by|before|until|till|due|deadline|renew\w*|expir\w*|launch\w*|go[- ]?live|going live|goes live|ends?|ending|contract|cut-?off|must|need\w*|have to|ready|demo|audit|board|cutover|migration|release|rollout|conference|event|kick-?off|trial|pilot|term|terminat\w*|cancel\w*|decision|decide|evaluat\w*|sign\w*)\b", I)
+MONX = "janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre"
+MONTHS = {n: i for i, names in enumerate((
+    "january janvier enero", "february fevrier febrero", "march mars marzo", "april avril abril", "may mai mayo", "june juin junio",
+    "july juillet julio", "august aout agosto", "september septembre septiembre setiembre", "october octobre octubre",
+    "november novembre noviembre", "december decembre diciembre"), 1) for n in names.split()}  # accent-free names, for _resolve
+CUE = re.compile(r"\b(?:by|before|until|till|due|deadline|renew\w*|expir\w*|launch\w*|go[- ]?live|going live|goes live|ends?|ending|contract|cut-?off|must|need\w*|have to|ready|demo|audit|board|cutover|migration|release|rollout|conference|event|kick-?off|trial|pilot|term|terminat\w*|cancel\w*|decision|decide|evaluat\w*|sign\w*|avant|d'ici|date limite|[ée]ch[ée]ance|renouvel\w*|hasta|antes de|fecha l[ií]mite|vence\w*|renov\w*)\b", I)
 # (pattern, needs a deadline cue word in the same sentence)
 DL = [(re.compile(p, I), cue) for p, cue in [
     (r"\b(?:by|before|until|till|due)\s+(?:the\s+)?(?:end of (?:the )?(?:day|week|month|quarter|year)|eod|eow|eom|eoq|tomorrow|tonight|today|next (?:week|month|quarter)|this (?:week|month|quarter)|(?:this |next |end of )?(?:" + DOW + r")|(?:early |mid |late |end of )?(?:" + MONF + r"))\b", False),
@@ -67,8 +103,10 @@ DL = [(re.compile(p, I), cue) for p, cue in [
     (r"\b(?:\d+|one|two|three|four|five|six|seven|ten)\s+(?:days?|weeks?|months?)\s+(?:left|remaining|away|until|from now)\b", True),
     (r"\b(?:(?:end of|by|in)\s+)?Q[1-4](?:\s+\d{4})?\b", True),
     (r"\b(?:in|early|mid|late)\s+(?:" + MONF + r")\b", True),
+    (r"\b\d{1,2}(?:st|nd|rd|th|er)?\s+(?:de\s+|of\s+)?(?:" + MONF + "|" + MONX + r")\b(?:,?\s+(?:de\s+)?\d{4})?", True),  # day first: 30 octobre, 30 de octubre
+    (r"\b(?:avant|d'ici|jusqu'au|au plus tard|hasta|antes del?)\s+(?:le |el |la |l')?(?:fin de (?:semaine|mois)|fin del? (?:mes|semana)|demain|ma[ñn]ana|lundi|mardi|mercredi|jeudi|vendredi|lunes|martes|mi[ée]rcoles|jueves|viernes)\b", False),
 ]]
-CALENDAR = (2, 3)  # DL entries that are concrete calendar dates (month day, ISO or numeric)
+CALENDAR = (2, 3, 9)  # DL entries that are concrete calendar dates (month day, ISO or numeric, day first)
 NUM = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "ten": 10, "few": 3}
 
 
@@ -98,6 +136,20 @@ def _resolve(phrase: str, base: date):
     """Days from the feedback date to the phrase, or None when it cannot be pinned down."""
     p = phrase.lower()
     try:
+        pa = "".join(ch for ch in unicodedata.normalize("NFD", p) if unicodedata.category(ch) != "Mn")
+        m = re.search(r"\b(\d{1,2})(?:st|nd|rd|th|er)?\s+(?:de\s+|of\s+)?(" + "|".join(MONTHS) + r")\b(?:,?\s+(?:de\s+)?(\d{4}))?", pa)
+        if m:  # day first, as in 30 octobre or 30 de octubre
+            d = date(int(m.group(3) or base.year), MONTHS[m.group(2)], int(m.group(1)))
+            if not m.group(3) and (d - base).days < -30:
+                d = date(d.year + 1, d.month, d.day)
+            return (d - base).days
+        m = re.search(r"\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b", pa)
+        if m:  # a French or Spanish weekday
+            wd = {"lundi": 0, "lunes": 0, "mardi": 1, "martes": 1, "mercredi": 2, "miercoles": 2, "jeudi": 3, "jueves": 3,
+                  "vendredi": 4, "viernes": 4, "samedi": 5, "sabado": 5, "dimanche": 6, "domingo": 6}[m.group(1)]
+            return (wd - base.weekday()) % 7
+        if re.search(r"\b(?:demain|manana)\b", pa):
+            return 1
         m = re.search(r"\b(" + MON + r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?", p)
         if m:
             mo = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].index(m.group(1)[:3]) + 1
@@ -173,6 +225,13 @@ def find_deadline(text: str, ts=None):
     return max(dated, key=lambda f: f[2]) if dated else found[0]
 
 
+def deadline_date(phrase: str, ts=None):
+    """The calendar date a deadline phrase points at, resolved against the ticket date, or None when it cannot be pinned down."""
+    base = _base(ts)
+    days = _resolve(phrase, base)
+    return base + timedelta(days=days) if days is not None else None
+
+
 def pick_quote(text: str, span=None, max_len: int = 220) -> str:
     """Verbatim slice of `text`: the sentence around `span`, else the first sentence."""
     spans = _sentences(text)
@@ -212,7 +271,8 @@ def classify_one(item) -> Classification:
     low = text.replace("’", "'")
     dl = find_deadline(text, _g(item, "timestamp"))
     neg, pos = len(NEG.findall(low)), len(POS.findall(low))
-    sentiment = "negative" if neg and neg >= pos else "positive" if pos else "neutral"
+    sarcastic = any(NEG.search(low[s:e]) and SARCASM.search(low[s:e]) for s, e in _sentences(low))
+    sentiment = "negative" if sarcastic or (neg and neg >= pos) else "positive" if pos else "neutral"
     tags = [t for t, rx in TAGS.items() if rx.search(low)] or ["other"]
     urgency = scoring.feedback_urgency(dl[2] if dl else None, bool(dl), bool(BLOCK.search(low)), bool(FRUS.search(low)))
     deadline = text[dl[1][0]:dl[1][1]] if dl else None
@@ -254,15 +314,17 @@ def llm_enabled() -> bool:
 
 
 def effective_mode() -> str:
-    """The engine that actually classifies. Report this, never the env flag, as the run mode (B3)."""
+    """The engine that actually classifies. Report this, never the env flag, as the run mode."""
     return "llm" if llm_enabled() else "offline"
 
 
-STATS = {"llm_batches": 0, "fallback_batches": 0}  # per process, reset by the caller at the start of a run
+# per process, reset by the caller at the start of a run. dropped_unverified counts model claims (a quote or a deadline) that
+# failed the verbatim check and were replaced by the rule-based answer.
+STATS = {"llm_batches": 0, "fallback_batches": 0, "dropped_unverified": 0}
 
 
 def reset_stats() -> None:
-    STATS.update(llm_batches=0, fallback_batches=0)
+    STATS.update(llm_batches=0, fallback_batches=0, dropped_unverified=0)
 
 
 def engine_used() -> str:
@@ -319,12 +381,14 @@ def _coerce(raw: dict, item) -> Classification:
     text, base = _g(item, "text") or "", classify_one(item)
     quote = raw.get("evidence_quote")
     if not isinstance(quote, str) or not quote.strip() or _nrm(quote) not in _nrm(text):
-        log.warning("llm quote for %s is not verbatim, using the offline answer for that item", base.id)
+        STATS["dropped_unverified"] += 1
+        log.warning("llm quote for %s is not verbatim, dropped and counted, using the offline answer for that item", base.id)
         return base
     deadline = raw.get("deadline")
     deadline = deadline.strip() if isinstance(deadline, str) and deadline.strip() else None
     if deadline and _nrm(deadline) not in _nrm(text):
         deadline = None  # never invent a deadline
+        STATS["dropped_unverified"] += 1
     if deadline and _nrm(deadline) not in _nrm(quote):
         quote = base.evidence_quote if base.deadline and _nrm(deadline) in _nrm(base.evidence_quote) else quote
     try:

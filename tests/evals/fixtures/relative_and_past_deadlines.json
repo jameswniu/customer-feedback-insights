@@ -1,0 +1,23 @@
+[
+  {
+    "id": "dl-001",
+    "source": "email",
+    "account": "Gringotts Bank",
+    "timestamp": "2026-10-05T09:00:00Z",
+    "text": "The SAML login bug has to be fixed by Friday or we escalate to our VP."
+  },
+  {
+    "id": "dl-002",
+    "source": "support_ticket",
+    "account": "Gringotts Bank",
+    "timestamp": "2026-10-05T10:00:00Z",
+    "text": "The export fix was due for release on September 28 and it still has not shipped."
+  },
+  {
+    "id": "dl-003",
+    "source": "call_notes",
+    "account": "Gringotts Bank",
+    "timestamp": "2026-10-05T11:00:00Z",
+    "text": "Our go-live is October 30 and the dashboards must be ready."
+  }
+]

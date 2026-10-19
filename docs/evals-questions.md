@@ -2,6 +2,8 @@
 
 Thirty cases covering the questions teams ask most and the edge cases power users hit, mapped onto the 40 seed rows in `data/sample_feedback.json`. Ground truth lives in `tests/fixtures/expected.json`. Recall is asserted, precision is not, and every quote must be a verbatim substring of its source text.
 
+Run them with `python scripts/run_evals.py`. It starts its own offline copy of the API on a throwaway database and prints one pass or fail line per case. All 30 pass at the time of writing, and the first run of the edge cases found eight gaps that were fixed afterwards.
+
 ## Happy paths, the most used conversations
 
 | # | Question | Pass when |

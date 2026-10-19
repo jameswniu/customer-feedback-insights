@@ -62,11 +62,12 @@ grep 3f9a1c logs/app.log        # trace one request by its id
 
 ```bash
 pytest -q                       # 69 tests, all offline
+python scripts/run_evals.py     # 30 conversation-style cases, about 20 seconds
 ./scripts/smoke.sh              # the whole flow on a throwaway database
 python scripts/latency.py       # median and p95 time for an analysis
 ```
 
-The tests check recall on the labelled urgent items and that every quote appears in its source. They never assert precision, on purpose. `docs/evals-questions.md` lists 30 more cases, 10 everyday conversations and 20 edge cases, written for a person to read.
+The tests check recall on the labelled urgent items and that every quote appears in its source. They never assert precision, on purpose. `docs/evals-questions.md` explains the 30 eval cases, 10 everyday conversations and 20 edge cases such as sarcasm, French and Spanish tickets, messy CSV files and a ticket that tries to give the tool orders. All 30 pass today.
 
 ## How I built it
 
@@ -77,6 +78,8 @@ SQLite and one process keep this easy to run. To productionize it I would put th
 Known limits, left alone to stay inside the 45 minutes:
 
 - The quote check ignores case and spacing, so it proves a quote is present rather than character-exact.
+- French and Spanish are handled with keyword cues, not a language model, so other languages need the API key.
+- A date with no year that is more than 30 days before the ticket is read as next year, which can show a lapsed deadline as live.
 - Results are saved in two writes instead of one transaction, and insights read at most 10,000 rows.
 - Two analyses started at once can overwrite each other.
-- The saved ratings trust the run id the CLI sends.
+- The saved ratings trust the run id the CLI sends, and record the engine of the latest run, so rating an older result after a setting change can mislabel it.

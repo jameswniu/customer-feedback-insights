@@ -1,0 +1,23 @@
+[
+  {
+    "id": "e2-001",
+    "source": "email",
+    "account": "Initrode",
+    "timestamp": "2026-10-15T09:00:00Z",
+    "text": "Our CSV export keeps timing out on the monthly usage report."
+  },
+  {
+    "id": "e2-002",
+    "source": "slack",
+    "account": "Initrode",
+    "timestamp": "2026-10-16T11:30:00Z",
+    "text": "Same problem again, the CSV export times out for the whole analytics team."
+  },
+  {
+    "id": "e2-003",
+    "source": "support_ticket",
+    "account": "Initrode",
+    "timestamp": "2026-10-17T14:00:00Z",
+    "text": "Opening a ticket to confirm the CSV export is still timing out, please prioritise it."
+  }
+]

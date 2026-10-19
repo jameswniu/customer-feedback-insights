@@ -1,0 +1,6 @@
+﻿Customer,Channel,Created At,Comment
+Acme Test,Zendesk,10/14/2026 09:30,"The CSV export times out on large reports, we are blocked before Friday."
+Globex Test,Slack,2026-10-15,
+Initech Test,Email,not a date,Dark mode would be nice to have.
+Hooli Test,NPS
+Pied Test,Call notes,10/16/2026,Procurement wants an annual billing quote.
