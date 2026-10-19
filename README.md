@@ -69,7 +69,7 @@ flowchart TB
     classDef data fill:#b2f2bb,stroke:#1e1e1e,color:#1e1e1e,stroke-width:2px;
 ```
 
-[Open the full-size diagram in Excalidraw](https://excalidraw.com/#json=Fa-D1f5-0Hun4ogpUWsVu,RtV5_MwS_whnB6N4Ys4lCg), a view-only copy anyone can open.
+View the full-size diagram as [a plain image](docs/architecture-full.png), or [in Excalidraw](https://excalidraw.com/#json=Fa-D1f5-0Hun4ogpUWsVu,RtV5_MwS_whnB6N4Ys4lCg), a view-only copy anyone can open.
 
 The CLI talks to a FastAPI service. Feedback lands in SQLite, a pipeline classifies each item, groups items into themes and scores urgency and criticality, and every quote is verified before anything is saved. The insights endpoint reads the result and filters it by team.
 
@@ -107,6 +107,7 @@ Known limits, left alone to stay inside the 45 minutes:
 
 - The quote check ignores case and spacing, so it proves a quote is present rather than character-exact.
 - French and Spanish are handled with keyword cues, not a language model, so other languages need the API key.
+- Chat recognizes a fixed set of question types by keyword rules, so unusual phrasing gets a help message instead of an answer.
 - A date with no year that is more than 30 days before the ticket is read as next year, which can show a lapsed deadline as live.
 - Results are saved in two writes instead of one transaction, and insights and chat read at most 10,000 rows.
 - A failure during a chat answer prints as a red error line, but the command still exits with success.
