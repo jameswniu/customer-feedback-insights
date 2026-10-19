@@ -41,7 +41,34 @@ Two rules shape the results. I favour recall over precision, because a person de
 
 ## Under the hood
 
-![Architecture diagram](docs/architecture.png)
+```mermaid
+flowchart TB
+    CLI["Terminal CLI<br/>ingest, analyze, insights, ledger"]:::ui
+
+    CLI -->|"1 load feedback"| ING["Ingest<br/>POST /feedback"]:::api
+    CLI -->|"2 run analysis"| ANA["Analyze<br/>POST /analyze"]:::api
+    CLI -->|"3 read results"| INS["Insights<br/>GET /insights"]:::api
+    CLI -->|"4 rate the result"| RAT["Ratings<br/>POST /ledger"]:::api
+
+    subgraph PIPE["Analysis pipeline"]
+        direction LR
+        CLS["Classify<br/>rules, or a model<br/>when a key is set"]:::model --> SCO["Group and score<br/>urgent, critical,<br/>at risk"]:::api --> VER["Verify quotes<br/>drop any claim<br/>it cannot prove"]:::api
+    end
+
+    ANA --> PIPE
+    ANA -. "live steps" .-> CLI
+    ING --> DB
+    PIPE --> DB[("SQLite<br/>feedback and themes")]:::data
+    INS -->|reads| DB
+    RAT --> LED[("Ratings log<br/>append-only file")]:::data
+
+    classDef ui fill:#ff8787,stroke:#1e1e1e,color:#1e1e1e,stroke-width:2px;
+    classDef api fill:#a5d8ff,stroke:#1e1e1e,color:#1e1e1e,stroke-width:2px;
+    classDef model fill:#eebefa,stroke:#1e1e1e,color:#1e1e1e,stroke-width:2px;
+    classDef data fill:#b2f2bb,stroke:#1e1e1e,color:#1e1e1e,stroke-width:2px;
+```
+
+[Open the full-size diagram in Excalidraw](https://excalidraw.com/#json=_jUbnVkTs81N9pn1AC_VE,E2OmiMS_4_S2txALNdgR8w), a view-only copy anyone can open.
 
 The CLI talks to a FastAPI service. Feedback lands in SQLite, a pipeline classifies each item, groups items into themes and scores urgency and criticality, and every quote is verified before anything is saved. The insights endpoint reads the result and filters it by team.
 
