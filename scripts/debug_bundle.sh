@@ -31,7 +31,7 @@ import sys
 B = sys.argv[1]
 SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|AUTH", re.I)
 APP_NAMES = ["ANTHROPIC_API_KEY", "LLM_MODEL", "LLM_MODE", "DB_PATH", "LEDGER_PATH", "LOG_LEVEL", "LOG_FILE",
-             "PORT", "OPEN_LOG_WINDOW", "API_URL"]
+             "PORT", "OPEN_LOG_WINDOW", "OPEN_CHAT_WINDOW", "API_URL"]
 TOKEN = re.compile(r"sk-[A-Za-z0-9_-]{6,}")
 KV = re.compile(r"""(?i)(["']?(?:api[_-]?key|token|secret|password|authorization|bearer)["']?\s*[:=]\s*["']?)[^"',\s}]+""")
 BEARER = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]{8,}")
