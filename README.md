@@ -2,7 +2,7 @@
 
 Turns customer feedback from many sources into what a team can act on, the urgent issues, the themes worth escalating and the accounts at risk, each backed by the customer's own words.
 
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688) ![Tests](https://img.shields.io/badge/tests-111%20passing-brightgreen) ![Built in](https://img.shields.io/badge/built%20in-45%20minutes-orange)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688) ![Tests](https://img.shields.io/badge/tests-125%20passing-brightgreen) ![Built in](https://img.shields.io/badge/built%20in-45%20minutes-orange)
 
 ![A customer success manager loads feedback, watches the analysis, asks a question and rates the answer](docs/demo.gif)
 
@@ -18,12 +18,14 @@ cd customer-feedback-insights
 ./run.sh
 ```
 
-`run.sh` sets up a virtual environment, installs the dependencies, starts the API on port 8000 and, on macOS, opens a second Terminal window that follows the logs. Then use the CLI from the first window.
+`run.sh` sets up a virtual environment, installs the dependencies and starts the API on port 8000. This window then says the API is on. On macOS it also opens two Terminal windows, one with the chat and one that follows the logs. On Linux, run `./scripts/chat.sh` and `tail -f logs/app.log` in two more terminals.
+
+The first time, the chat loads the sample feedback and analyzes it, so you can ask a question at once. Use this window for the other commands.
 
 ```bash
-python -m app.cli ingest data/sample_feedback.json
+python -m app.cli ingest data/sample_feedback.json   # the chat window already did this on a first run
 python -m app.cli analyze
-python -m app.cli chat
+python -m app.cli chat                               # the same chat, here
 python -m app.cli insights --team customer_success
 python -m app.cli ledger
 ```
@@ -77,7 +79,7 @@ Without an API key a rule-based classifier does the work. With `ANTHROPIC_API_KE
 
 ## Debugging
 
-Every run writes JSON lines to `logs/app.log`, with a request id and step timing on each line. The second Terminal window shows the same stream.
+Every run writes JSON lines to `logs/app.log`, with a request id and step timing on each line. The log window shows the same stream.
 
 ```bash
 LOG_LEVEL=DEBUG ./run.sh        # also logs model prompts and replies, never the API key
@@ -89,7 +91,7 @@ grep 3f9a1c logs/app.log        # trace one request by its id
 ## Tests
 
 ```bash
-pytest -q                       # 111 tests, all offline
+pytest -q                       # 125 tests, all offline
 python scripts/run_evals.py     # 38 conversation-style cases, about 25 seconds
 ./scripts/smoke.sh              # the whole flow on a throwaway database
 python scripts/latency.py       # median and p95 time for an analysis
@@ -112,4 +114,5 @@ Known limits, left alone to stay inside the 45 minutes:
 - Results are saved in two writes instead of one transaction, and insights and chat read at most 10,000 rows.
 - A failure during a chat answer prints as a red error line, but the command still exits with success.
 - Two analyses started at once can overwrite each other.
+- The launcher scripts trust a loopback address and a saved process id, so a tunnel to another machine, or a process id reused by a copy of this API, can fool them. `LOAD_SAMPLE=0` stops the sample load.
 - The saved ratings trust the run id the CLI sends, and record the engine of the latest run, so rating an older result after a setting change can mislabel it.

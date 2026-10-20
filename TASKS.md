@@ -63,3 +63,4 @@ Time box, 45 minutes, code freeze at minute 40. Contracts live in CLAUDE.md. Rea
 
 ## Added
 - [x] qa 12:47 Q.7 Eval set. tests/evals/cases.json (10 happy, 20 edge), handlers in tests/evals/*.py, fixtures in tests/evals/fixtures, runner scripts/run_evals.py. Run `.venv/bin/python scripts/run_evals.py`, it starts its own offline API on a temp database and port. Result 26 of 30 pass at 12:53, all 10 happy paths pass, the 4 edge failures still open are B4, B5, B9 and B10.
+- [x] arch 17:25 Q.9 `./run.sh` opens a chat window beside the log window, and its own terminal says the API is on. `scripts/chat.sh` loads and analyzes the sample on a first run (tests/test_chat_window.py), and `./run.sh stop` waits for the API to exit.

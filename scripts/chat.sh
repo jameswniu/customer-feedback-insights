@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # The chat window. run.sh opens it on macOS, and anywhere else you run it in a second terminal.
-# It makes sure there is something to ask about. An empty API on this machine gets the sample feedback, and when
-# nothing is analyzed yet the analysis runs, so a first run that stopped half way is picked up again next time.
-# LOAD_SAMPLE=0 skips the sample, and an API on another machine never gets it.
+# It makes sure there is something to ask about. An empty API at a loopback address (127.0.0.1 or localhost) gets the
+# sample feedback, and when no row is analyzed yet the analysis runs, so a first run that stopped half way is picked up
+# again next time. A URL on another host never gets the sample. A tunnel that forwards a loopback port to another machine
+# looks local to this script, so LOAD_SAMPLE=0 is how to say no there.
 # Usage: ./scripts/chat.sh          PORT=8001 ./scripts/chat.sh    for an API on another port
 set -u
 cd "$(dirname "$0")/.."
@@ -24,11 +25,12 @@ api_number() {
   curl -fsS "$API_URL$1" 2>/dev/null | "$PY" -c "import json, sys; d = json.load(sys.stdin); print($2)" 2>/dev/null
 }
 
-# Loads the sample into an empty local API and runs the analysis when nothing is analyzed.
+# Loads the sample into an empty loopback API and runs the analysis when no row is analyzed. Readiness counts analyzed
+# rows, not themes, so an analysis that legitimately found no themes is not run again.
 # If any probe fails it does nothing at all, and the chat that follows reports the real problem.
 prepare() {
   local loaded analyzed this_machine=""
-  loaded="$(api_number /health 'd["feedback_count"]')" && analyzed="$(api_number /insights 'len(d["themes"])')" || {
+  loaded="$(api_number /health 'd["feedback_count"]')" && analyzed="$(api_number '/feedback?limit=1000' 'sum(1 for f in d if f.get("analyzed_at"))')" || {
     echo "Could not read what the API holds, so nothing was loaded or analyzed first." >&2
     return 0
   }

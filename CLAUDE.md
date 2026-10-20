@@ -17,7 +17,7 @@ Flow: ingest feedback, analyze, read insights (optionally for one team), rate th
 3. URGENT means a time deadline (renewal date, launch, contract end, "by Friday", outage, "blocked"). CRITICAL means multiple stakeholders affected (several accounts, or several items from one account across sources). Both, either, or neither. Priority label: `urgent+critical`, `urgent`, `critical`, `watch`.
 4. Latency target, suggested not hard: POST /analyze p50 < 20 s, p95 < 30 s on the seed set.
 5. The bot streams its reasoning: every real pipeline step is an event, printed live by the CLI, then the answer.
-6. Observability: `./run.sh` opens a second Terminal window tailing `logs/app.log`.
+6. Observability and chat: `./run.sh` opens a Terminal window for the chat and one tailing `logs/app.log`, and its own terminal says the API is on. `scripts/chat.sh` is the chat window. Before it starts the chat it makes sure there is something to ask about. An empty API on this machine gets `data/sample_feedback.json` (`LOAD_SAMPLE=0` skips that, and a non-local `API_URL` never gets it), and when no row is analyzed the analysis runs, so a first run that stopped half way is picked up on the next launch. Readiness counts analyzed rows from the first 1000 rows of `GET /feedback`, never themes, and a probe that fails skips the setup instead of reading as zero. Loopback is judged by the URL alone, so a tunnel that forwards a loopback port to another machine looks local (use `LOAD_SAMPLE=0`).
 7. Offline mode (rule-based) must work with no API key. LLM mode is optional, on when `ANTHROPIC_API_KEY` is set.
 8. Scalable and secure are documented design points (README), not prototype features. Never log secrets.
 
@@ -82,13 +82,14 @@ Ledger: append-only `data/ledger.jsonl`, one JSON object per line: {"ts","run_id
 
 CLI (`python -m app.cli`), talks to `API_URL` (default http://127.0.0.1:8000): `ingest <path>`, `analyze`, `ledger`, `insights [--team product|customer_success]` (prints, then asks `Good? (yes/no) + reason:` and POSTs /ledger). `chat` is an interactive prompt that sends each line to POST /ask, prints the streamed steps and the quoted answer, then asks `Good? (yes/no, enter to skip) + reason:` and saves it to the ledger with target `chat`.
 
-Env: ANTHROPIC_API_KEY (optional), LLM_MODEL (claude-haiku-5-5), LLM_MODE (auto|offline), DB_PATH (data/feedback.db), LEDGER_PATH (data/ledger.jsonl), LOG_LEVEL (INFO), LOG_FILE (logs/app.log), PORT (8000), OPEN_LOG_WINDOW (1), API_URL.
+Env: ANTHROPIC_API_KEY (optional), LLM_MODEL (claude-haiku-5-5), LLM_MODE (auto|offline), DB_PATH (data/feedback.db), LEDGER_PATH (data/ledger.jsonl), LOG_LEVEL (INFO), LOG_FILE (logs/app.log), PORT (8000), OPEN_LOG_WINDOW (1), OPEN_CHAT_WINDOW (follows OPEN_LOG_WINDOW), API_URL.
 
 Logging: JSON lines to LOG_FILE plus human lines to stderr; fields ts, level, logger, msg, request_id, step, duration_ms. LLM calls log model, latency_ms and token counts at INFO, full prompts only at DEBUG. `run.sh` opens the log window with `osascript` on macOS. `scripts/debug_bundle.sh` writes `debug/bundle-<timestamp>.tar.gz` (last 2000 log lines, redacted env, versions, row counts).
 
 ## Commands
 ```
-./run.sh                 # venv, deps, start API on :8000, open log window, print CLI help
+./run.sh                 # venv, deps, start API on :8000, open the chat and log windows, print the API status
+./scripts/chat.sh        # the chat window by hand, PORT=8001 ./scripts/chat.sh for another port
 python -m app.cli --help
 pytest -q
 ./scripts/smoke.sh       # temp DB and port, offline mode, ingest seed, analyze, check insights, kill server
@@ -112,4 +113,5 @@ Four sessions shared this directory, an architect, two engineers and a QA. The b
 - SSE: `StreamingResponse(media_type="text/event-stream")`, headers `Cache-Control: no-cache` and `X-Accel-Buffering: no`, flush per event.
 - SQLite is touched from threadpool threads: open a connection per call, never share one.
 - LLM JSON can be malformed or fenced: strip code fences, parse, retry once, fall back offline.
-- `osascript` only exists on macOS: `run.sh` must degrade to printing the `tail -f` command.
+- `osascript` only exists on macOS: `run.sh` must degrade to printing the `scripts/chat.sh` and `tail -f` commands. The window switches `OPEN_LOG_WINDOW` and `OPEN_CHAT_WINDOW` are read from the shell, not from `.env`, and `OPEN_CHAT_WINDOW` follows `OPEN_LOG_WINDOW` when unset so `OPEN_LOG_WINDOW=0` opens nothing. `0`, `false` and `no` all mean off.
+- `./run.sh stop` waits up to five seconds for the API to exit, so `./run.sh stop && ./run.sh` does not hit a busy port. If the API is still finishing a request it keeps `.run.pid` and exits 1, and stopping again works. The pid file counts only while that pid's command line is the API (`uvicorn app.main:app`), so a stale file after a reboot never makes `run.sh` signal an unrelated process. Another checkout's identical API that reuses a stale pid would still pass, a known limit.

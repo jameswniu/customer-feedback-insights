@@ -117,10 +117,10 @@ def test_the_launch_scripts_parse(script):
 # ---- an API that goes wrong half way ------------------------------------------------------------
 
 class StubApi:
-    """A stand-in API that answers /health ok only the first `health_ok` times, and /insights ok only if asked to.
-    It records every request, so a test can see that nothing was written."""
+    """A stand-in API that answers /health ok only the first `health_ok` times, and /feedback with the given rows
+    (None makes it fail). It records every request, so a test can see that nothing was written."""
 
-    def __init__(self, health_ok, insights_ok):
+    def __init__(self, health_ok, rows):
         self.seen = []
         stub = self
 
@@ -142,8 +142,8 @@ class StubApi:
                     ok = sum(1 for _, path in stub.seen if path == "/health") <= health_ok
                     return self._send(200, {"status": "ok", "mode": "offline", "feedback_count": 5}) if ok \
                         else self._send(500, {"detail": "boom"})
-                if self.path.startswith("/insights"):
-                    return self._send(200, {"themes": []}) if insights_ok else self._send(500, {"detail": "boom"})
+                if self.path.startswith("/feedback"):
+                    return self._send(200, rows) if rows is not None else self._send(500, {"detail": "boom"})
                 self._send(404, {})
 
             def do_POST(self):
@@ -170,7 +170,7 @@ def _chat_against(stub):
 
 def test_a_failed_health_probe_is_not_read_as_an_empty_api():
     """The first reachability check passes, then the count cannot be read. That must not look like zero feedback."""
-    stub = StubApi(health_ok=1, insights_ok=True)
+    stub = StubApi(health_ok=1, rows=[])
     try:
         r = _chat_against(stub)
     finally:
@@ -180,8 +180,8 @@ def test_a_failed_health_probe_is_not_read_as_an_empty_api():
     assert LOAD_NOTICE not in r.stdout and ANALYZE_NOTICE not in r.stdout
 
 
-def test_a_failed_insights_probe_does_not_start_an_analysis():
-    stub = StubApi(health_ok=99, insights_ok=False)
+def test_a_failed_feedback_probe_does_not_start_an_analysis():
+    stub = StubApi(health_ok=99, rows=None)
     try:
         r = _chat_against(stub)
     finally:
@@ -190,6 +190,26 @@ def test_a_failed_insights_probe_does_not_start_an_analysis():
     assert "Could not read what the API holds" in r.stderr
     assert ANALYZE_NOTICE not in r.stdout
     assert GREETING in r.stdout                                    # the chat still opens and reports for itself
+
+
+def test_analyzed_feedback_that_found_no_themes_is_not_analyzed_again():
+    """Readiness is the count of analyzed rows. An analysis that legitimately produced no themes must not rerun forever."""
+    stub = StubApi(health_ok=99, rows=[{"id": "fb-1", "analyzed_at": "2026-10-19T10:00:00"}])
+    try:
+        r = _chat_against(stub)
+    finally:
+        stub.close()
+    assert stub.writes() == [], f"wrote to an API whose rows were already analyzed, {stub.writes()}"
+    assert ANALYZE_NOTICE not in r.stdout
+    assert GREETING in r.stdout
+    # Control, the same API with an unanalyzed row. If this did not start an analysis the check above would prove nothing.
+    control = StubApi(health_ok=99, rows=[{"id": "fb-1", "analyzed_at": None}])
+    try:
+        rc = _chat_against(control)
+    finally:
+        control.close()
+    assert ANALYZE_NOTICE in rc.stdout
+    assert any(path.startswith("/analyze") for _, path in control.writes())
 
 
 # ---- ./run.sh stop ------------------------------------------------------------------------------
