@@ -81,7 +81,7 @@ fi
 health="$(curl -fsS "http://127.0.0.1:$PORT/health" || echo '{}')"
 mode="$("$VENV_PY" -c 'import json, sys; print(json.loads(sys.argv[1]).get("mode", "?"))' "$health" 2>/dev/null || echo "?")"
 case "$mode" in
-  llm) how="Claude classifies the feedback" ;;
+  llm) how="an API key is set, so Claude is tried first and the rules cover any failure" ;;
   offline) how="rule-based, no API key needed" ;;
   *) how="mode $mode" ;;
 esac

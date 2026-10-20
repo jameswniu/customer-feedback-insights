@@ -342,11 +342,29 @@ def rate_chat(first: Optional[str]) -> None:
     print(green(f"Logged {verdict}") + (f" - {reason}" if reason else ""))
 
 
+def _is_number(text: str) -> bool:
+    """A short run of decimal digits. The length cap keeps int() away from absurd input."""
+    return text.isdecimal() and len(text) <= 3
+
+
+def parse_choice(line: str, options: list[dict]) -> Optional[str]:
+    """The question behind a typed 1, 2 or 3, or behind an option's own words. None when the line is not a pick."""
+    text = line.strip().rstrip(".)").strip().lower()
+    if _is_number(text):
+        n = int(text)
+        return options[n - 1]["question"] if 1 <= n <= len(options) else None
+    for o in options:
+        if text in (o["label"].lower(), o["question"].lower()):
+            return o["question"]
+    return None
+
+
 def cmd_chat(_: argparse.Namespace) -> int:
     with client() as cl:
         _check(cl.get("/health"), "health")
     print(bold("Feedback Insights chat.") + " Ask about your customer feedback, or type exit.")
     print(dim("Try, Which accounts need attention today?  What's urgent this week?  What should we escalate?"))
+    options: list[dict] = []  # what the last reply offered, so a typed 1, 2 or 3 can pick one
     try:
         while True:
             line = _chat_ask("\nYou> ")
@@ -358,13 +376,27 @@ def cmd_chat(_: argparse.Namespace) -> int:
                 continue
             if question.lower() in ("exit", "quit"):
                 break
+            if options:
+                picked = parse_choice(question, options)
+                if picked is None and _is_number(question):
+                    print(dim(f"Pick a number from 1 to {len(options)}, or ask something else."))
+                    continue
+                if picked is not None:
+                    print(dim(f"Asking, {picked}"))
+                    question = picked
+            options = []
             try:
                 with client(read=None) as cl:
                     answered = ask_once(cl, question)
             except CliError as exc:
                 print(red(str(exc)), file=sys.stderr)
                 continue
-            if answered is not None:
+            if answered is None:
+                continue
+            data = answered.get("data") or {}
+            if data.get("intent") == "clarify":
+                options = data.get("options") or []  # a question back, not an answer, so there is nothing to rate yet
+            else:
                 rate_chat(_chat_ask("Good? (yes/no, enter to skip) + reason: "))
     except KeyboardInterrupt:
         print()

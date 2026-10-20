@@ -64,7 +64,7 @@ API (`app/main.py`):
 - `GET /insights?teams=product|customer_success` (omit = all, unknown = 400) -> Insights
 - `POST /ledger` {run_id?, target, verdict:"yes"|"no", reason} -> 201 LedgerEntry; reason required when verdict is "no" (422 otherwise)
 - `GET /ledger?limit=` -> list[LedgerEntry]
-- `POST /ask` {question} -> SSE of Event, the chat answer (steps understand, fetch, verify, answer, done). 400 on an empty question, 501 if `app/analyze/ask.py` is missing. Answers come only from the analyzed data, every quote is a verbatim substring of its feedback text, and the answer event's `data.intent` is one of accounts, urgent, escalate, overview, account_why, theme_evidence, unknown_account, unknown_theme, no_analysis or help.
+- `POST /ask` {question} -> SSE of Event, the chat answer (steps understand, fetch, verify, answer, done). 400 on an empty question, 501 if `app/analyze/ask.py` is missing. Answers come only from the analyzed data, every quote is a verbatim substring of its feedback text, and the answer event's `data.intent` is one of accounts, urgent, escalate, overview, account_why, theme_evidence, unknown_account, unknown_theme, no_analysis, clarify or help. `clarify` is a question about the feedback that no rule can place. Its `data.options` holds three `{label, question}` pairs, the likeliest first, and each `question` is one the chat answers, so a client can send the one the user picks. `help` is for off-topic input and an explicit request for help.
 
 Event: {"step": start|load|classify|cluster|score|verify|persist|answer|done|error, "message", "ts", "data": {}}.
 Insights: {"run_id","generated_at","team","mode","themes":[Theme + priority + evidence[]],"urgent_issues":[{feedback_id, account, source, quote, deadline, lapsed, theme_id, confidence}],"at_risk_accounts":[{account, risk, confidence, reasons[], evidence[]}],"dropped_unverified"}.
@@ -80,7 +80,7 @@ Scoring (constants in `scoring.py`, recall-first):
 
 Ledger: append-only `data/ledger.jsonl`, one JSON object per line: {"ts","run_id","target","verdict","reason","mode","insights_sha256"}. Never rewritten.
 
-CLI (`python -m app.cli`), talks to `API_URL` (default http://127.0.0.1:8000): `ingest <path>`, `analyze`, `ledger`, `insights [--team product|customer_success]` (prints, then asks `Good? (yes/no) + reason:` and POSTs /ledger). `chat` is an interactive prompt that sends each line to POST /ask, prints the streamed steps and the quoted answer, then asks `Good? (yes/no, enter to skip) + reason:` and saves it to the ledger with target `chat`.
+CLI (`python -m app.cli`), talks to `API_URL` (default http://127.0.0.1:8000): `ingest <path>`, `analyze`, `ledger`, `insights [--team product|customer_success]` (prints, then asks `Good? (yes/no) + reason:` and POSTs /ledger). `chat` is an interactive prompt that sends each line to POST /ask, prints the streamed steps and the quoted answer, then asks `Good? (yes/no, enter to skip) + reason:` and saves it to the ledger with target `chat`. After a `clarify` reply it keeps the options, takes a typed 1, 2 or 3 (or an option's own words) as the pick and sends that option's question, and it asks for no rating until a real answer comes back.
 
 Env: ANTHROPIC_API_KEY (optional), LLM_MODEL (claude-haiku-5-5), LLM_MODE (auto|offline), DB_PATH (data/feedback.db), LEDGER_PATH (data/ledger.jsonl), LOG_LEVEL (INFO), LOG_FILE (logs/app.log), PORT (8000), OPEN_LOG_WINDOW (1), OPEN_CHAT_WINDOW (follows OPEN_LOG_WINDOW), API_URL.
 

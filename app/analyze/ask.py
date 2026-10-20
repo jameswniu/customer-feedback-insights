@@ -3,6 +3,9 @@
 No new analysis happens here. A keyword rule picks the intent, the answer is read from app.insights.build_insights and
 app.db, and every quote is checked against its source text before it is shown. A claim whose quote fails is dropped
 and counted in dropped_unverified. The raw question and the quotes are never logged.
+
+A question that is about the feedback but that no rule can place gets a question back instead of a guess. The reply
+lists three options, each one a question this module understands, so the client can send the one the user picks.
 """
 from __future__ import annotations
 
@@ -25,6 +28,7 @@ INTENT_LABEL = {
     "accounts": "at-risk accounts", "urgent": "urgent items", "escalate": "themes to escalate", "overview": "a team overview",
     "account_why": "why an account is at risk", "theme_evidence": "the evidence for a theme",
     "unknown_account": "an account I cannot find", "unknown_theme": "a theme I cannot find",
+    "clarify": "I am not sure which of three things you mean",
 }
 HELP = ("I answer from the analyzed feedback only, with quotes. Try, Which accounts need attention today? What's urgent this week? "
         "What should we escalate? Why is <account> at risk? What's the evidence for the <theme> theme? "
@@ -40,6 +44,11 @@ ESC = re.compile(r"\b(escalat\w*|themes?|top issues?|biggest|main problems?|prio
 URGENT = re.compile(r"\b(urgent\w*|due|deadlines?|blocked|blocking|blockers?|outages?|down|asap|this week|today|tomorrow|soon|expir\w*|"
                     r"renew\w*|launch\w*|critical|fires?|on fire|time sensitive|overdue|lapsed|can t|cannot)\b")
 BLOCKING = re.compile(r"\b(blocked|blocking|blockers?|outages?|down|can t|cannot)\b")
+SUBJECT = re.compile(r"\b(accounts?|customers?|clients?|companies|company|who|feedback|tickets?|issues?|problems?|complain\w*|users?)\b")
+NEED = re.compile(r"\b(need\w*|care|attention|look|focus|worr\w*|trouble|priorit\w*|watch|follow up|check on|reach out)\b")
+TIMEWORD = re.compile(r"\b(days?|weeks?|months?|tomorrow|tonight|soon|deadlines?|overdue|next|coming)\b")
+WINDOW = re.compile(r"\b(?:next|coming|following)\s+(?:\w+\s+)?(?:days?|weeks?|months?)\b|\b(?:in|within)\s+(?:\w+\s+)?(?:days?|weeks?|months?)\b")
+HELP_ASK = re.compile(r"\b(help|what can you do|how (?:do|does) (?:this|it) work|commands?|usage|instructions?)\b")
 EVID = re.compile(r"\b(evidence|quotes?|examples?|proof|supporting|what are (?:people|customers|users) saying|show me)\b")
 WHY_NAME = re.compile(r"\bwhy\s+(?:is|are|does|do|did)\s+(.+?)\s+(?:at risk|risky|unhappy|on the list|flagged|in trouble|a risk|churning|upset)\b")
 THEME_NAME = re.compile(r"\b(?:for|of|on|about)\s+(?:the\s+)?(.+?)\s+theme\b")
@@ -121,7 +130,40 @@ def understand(question: str, accounts: list[str], themes: list[str]) -> dict:
         return {**out, "intent": "urgent", "focus": "blocked" if BLOCKING.search(q) else None}
     if team:
         return {**out, "intent": "overview"}
+    if not HELP_ASK.search(q) and (SUBJECT.search(q) or NEED.search(q)):
+        return {**out, "intent": "clarify"}  # about the feedback, but no rule can place it, so ask instead of guessing
     return out
+
+
+# ---- the question back. Each option is a question understand() maps to a real intent, so a pick always gets an answer. ----
+
+OPTIONS = {
+    "accounts": ("Accounts at risk, most at risk first", "Which accounts need attention today?"),
+    "urgent": ("Urgent items, each with its deadline", "What's urgent this week?"),
+    "escalate": ("Themes to escalate, highest priority first", "What should we escalate?"),
+}
+
+
+def _clarify_options(q: str) -> list[dict]:
+    """The three things the chat can answer, the likeliest first. A team word never gets here, it already picked the overview."""
+    score = {"accounts": 0, "urgent": 0, "escalate": 0}
+    if ACCT_WORD.search(q) or NEED.search(q):
+        score["accounts"] += 1
+    if TIMEWORD.search(q) or URGENT.search(q):
+        score["urgent"] += 1
+    if re.search(r"\b(should|first|fix|work on|top)\b", q):
+        score["escalate"] += 1
+    order = sorted(score, key=lambda k: (-score[k], list(OPTIONS).index(k)))
+    return [{"label": OPTIONS[k][0], "question": OPTIONS[k][1]} for k in order]
+
+
+def _clarify_text(options: list[dict], windowed: bool) -> str:
+    lines = ["I am not sure which of these you mean."]
+    if windowed:
+        lines.append("I cannot filter by a date range yet, so the urgent items show each deadline for you to read.")
+    lines += [f"{n}. {o['label']}" for n, o in enumerate(options, 1)]
+    lines.append("Type 1, 2 or 3, or ask it another way.")
+    return "\n".join(lines)
 
 
 # ---- building the groups. A group is one claim line, its items are the quotes that back it. ----
@@ -277,6 +319,13 @@ def answer_question(question: str) -> Iterator[Event]:
             yield ev("fetch", "No analysis found", items=0, themes=0)
             yield ev("answer", msg, intent="no_analysis", team=team, account=None, items=[])
             yield ev("done", "Done", intent="no_analysis", items=0, dropped_unverified=0, duration_s=round(time.perf_counter() - t0, 3))
+            return
+        if intent == "clarify":  # after the guard above, so options are never offered when every pick would be a dead end
+            q = _fold(question)
+            options = _clarify_options(q)
+            yield ev("answer", _clarify_text(options, bool(WINDOW.search(q))), intent="clarify", team=None, account=None,
+                     items=[], options=options)
+            yield ev("done", "Done", intent="clarify", items=0, dropped_unverified=0, duration_s=round(time.perf_counter() - t0, 3))
             return
         ins = build_insights(team)
         yield ev("fetch", f"Loaded the latest analysis, {len(analyzed)} items, {len(db.list_themes())} themes", items=len(analyzed),

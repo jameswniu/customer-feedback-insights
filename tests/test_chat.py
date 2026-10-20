@@ -301,21 +301,62 @@ def test_unknown_question_gets_a_help_reply_not_a_guess(srv):
     assert known["data"]["intent"] != "help"
 
 
+# ---- a question it cannot place gets a question back, not a guess ------------------------------------------------
+
+UNCLEAR = "what accounts need to take care next 3 days?"   # typed into a real chat window and answered with the help text
+
+
+def test_a_question_about_the_feedback_that_no_rule_places_asks_which_one_you_mean(srv):
+    ev, ans = ask(srv.http, UNCLEAR)
+    steps = [e["step"] for e in ev]
+    assert steps[-1] == "done" and "error" not in steps
+    assert ans["data"]["intent"] == "clarify", ans["data"]
+    assert not items_of(ans), "a question back must not carry quotes"
+    options = ans["data"]["options"]
+    assert len(options) == 3 and all(o["label"] and o["question"] for o in options)
+    assert options[0]["label"].lower().startswith("accounts"), "the question said accounts, so accounts lead"
+    assert "date range" in ans["message"].lower(), "the 3 day window cannot be filtered and the reply must say so"
+    # controls, no window means no note, and an off-topic question is help rather than a clarifying question
+    _, plain = ask(srv.http, "what accounts need to take care?")
+    assert plain["data"]["intent"] == "clarify" and "date range" not in plain["message"].lower()
+    for q in (UNKNOWN, "help", "what can you do?"):
+        assert ask(srv.http, q)[1]["data"]["intent"] == "help", q
+
+
+def test_every_option_is_a_question_the_chat_answers(srv):
+    _, ans = ask(srv.http, UNCLEAR)
+    got = [ask(srv.http, o["question"])[1]["data"]["intent"] for o in ans["data"]["options"]]
+    assert sorted(got) == ["accounts", "escalate", "urgent"], got
+
+
+def test_the_options_follow_the_cues_in_the_question(srv):
+    _, ans = ask(srv.http, "which problems should we work on first?")
+    assert ans["data"]["intent"] == "clarify"
+    assert ans["data"]["options"][0]["label"].lower().startswith("themes"), ans["data"]["options"]
+    # control, the question about accounts and days leads with something else
+    assert ask(srv.http, UNCLEAR)[1]["data"]["options"][0]["label"].lower().startswith("accounts")
+
+
 def test_question_before_any_analysis_says_to_ingest_then_analyze(fresh):
     ev, ans = ask(fresh.http, Q["h1"])
     assert ans is not None and [e["step"] for e in ev][-1] == "done"
     assert not items_of(ans) and "fb-" not in ans["message"]
     text = ans["message"].lower()
     assert "ingest" in text and "analy" in text, ans["message"]
+    assert ask(fresh.http, UNCLEAR)[1]["data"]["intent"] == "no_analysis"
     # ingested but not analyzed is the same answer
     fresh.http.post("/feedback", json=json.loads(SEED.read_text()))
     _, ans2 = ask(fresh.http, Q["h1"])
     assert not items_of(ans2) and "analy" in ans2["message"].lower(), ans2["message"]
+    # an unclear question gets the same answer, never options whose every pick would hit this wall
+    _, unclear = ask(fresh.http, UNCLEAR)
+    assert unclear["data"]["intent"] == "no_analysis" and "options" not in unclear["data"], unclear["data"]
     # control, after analyze the same question gets a real answer
     assert fresh.http.post("/analyze", params={"mode": "all", "stream": "false"}).status_code == 200
     fresh.fb = {f["id"]: f for f in fresh.http.get("/feedback", params={"limit": 1000}).json()}
     _, ans3 = ask(fresh.http, Q["h1"])
     assert items_of(ans3) and not bad_items(items_of(ans3), fresh.fb)
+    assert ask(fresh.http, UNCLEAR)[1]["data"]["intent"] == "clarify"
 
 
 def test_account_that_does_not_exist_is_not_guessed(srv):
@@ -424,6 +465,35 @@ def test_cli_chat_unknown_question_and_no_analysis(srv, empty_cli):
     assert "fb-" not in out, out[-300:]
     empty_out = chat_cli(empty_cli, Q["h1"], "", "exit").stdout.lower()
     assert "ingest" in empty_out and "analy" in empty_out, empty_out[-300:]
+
+
+def test_cli_chat_a_question_back_is_answered_by_typing_its_number(srv):
+    before = len(ledger_rows(srv))
+    r = chat_cli(srv, UNCLEAR, "2", "", "exit")
+    out = r.stdout
+    assert r.returncode == 0 and "Traceback" not in r.stderr + out
+    assert "Type 1, 2 or 3" in out
+    assert "Asking, What's urgent this week?" in out          # option 2 for this question is the urgent one
+    assert "fb-006" in out                                     # and it came back with quotes
+    assert out.count("Good?") == 1, "only the real answer is rated, not the question back"
+    assert len(ledger_rows(srv)) == before                     # an empty reply skips the rating
+
+
+def test_cli_chat_a_number_outside_the_options_is_not_sent(srv):
+    out = chat_cli(srv, UNCLEAR, "7", "exit").stdout
+    assert "Pick a number from 1 to 3" in out
+    assert out.count("understand") == 1, "only the first question should have reached the server"
+
+
+def test_cli_chat_a_number_means_nothing_after_a_real_answer(srv):
+    out = chat_cli(srv, Q["h1"], "", "1", "", "exit").stdout
+    assert "Asking," not in out, "a 1 with no options pending is just another question"
+
+
+@pytest.mark.parametrize("junk", ["²", "9" * 5000, "٣"])
+def test_cli_chat_odd_digits_after_a_question_back_do_not_crash(srv, junk):
+    r = chat_cli(srv, UNCLEAR, junk, "", "exit")
+    assert r.returncode == 0 and "Traceback" not in r.stderr + r.stdout
 
 
 def test_cli_chat_ratings_land_in_the_ledger_with_target_chat(srv):
